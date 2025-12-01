@@ -197,21 +197,47 @@ function extractFollowingText(text, startRegex, stopRegex, maxLines = 20) {
 	// Drop the common second-line label fragment like "property e.g. Noise, Odour"
 	const filtered = rest.filter(l => !/^\s*property\s*e\.?\s*g\.?\s*[:\-]?\s*Noise,\s*Odou?r\s*$/i.test(l));
 	if (!filtered.length) return null;
-	// Heuristics: choose the first free-text answer line, skipping unrelated prompts/labels/numeric-only lines
-	for (const l of filtered) {
-		const line = String(l || "").trim();
+	// Collect consecutive free-text answer lines, skipping prompts/labels/numeric-only lines
+	const isPrompt = (line) => {
+		return (
+			/\b(Yes|No)\b/i.test(line) ||
+			/(^([A-Z][A-Za-z/&\s-]+:)|Tenure\b|Has the property\b|Does the property\b|Number of\b|How many\b|HMO\b|Freehold\b|Leasehold\b|Freehold Block\b|CURRENT\s+OCCUPANCY|Maintenance\b|^\s*Charge\b|^\s*Charges\b|^\s*Rent\b|^\s*Road\b|^\s*Ground\b)/i.test(line)
+		);
+	};
+	const collected = [];
+	let started = false;
+	for (const raw of filtered) {
+		if (Number.isFinite(maxLines) && collected.length >= maxLines) break;
+		let line = String(raw || "");
+		if (!line.trim()) continue;
+		// If a prompt phrase appears on the same physical line (two columns), keep left portion before prompt
+		const promptSplitRe = /(?:\s{2,})(Tenure\b|Has the property\b|Does the property\b|Freehold\s*Block\b|CURRENT\s+OCCUPANCY|If\s+Yes,\s*please\s+provide\s+details|Maintenance\b|Charge\b|Charges\b|Rent\b|Road\b|Ground\b)/i;
+		const mSplit = line.match(promptSplitRe);
+		if (mSplit) {
+			const idx = line.search(promptSplitRe);
+			if (idx > 0) line = line.slice(0, idx);
+		}
+		line = line.replace(/\s+/g, " ").trim();
+		if (!line) continue;
 		// Skip numeric-only (e.g., "3")
-		if (/^\d+(?:\.\d+)?$/.test(line)) continue;
-		// Skip prompts, headers, or option lines
-		if (/\b(Yes|No)\b/i.test(line)) continue;
-		if (/(^([A-Z][A-Za-z/&\s-]+:)|Tenure\b|Has the property\b|Does the property\b|Number of\b|How many\b|HMO\b|Freehold\b|Leasehold\b|Freehold Block\b|CURRENT\s+OCCUPANCY)/i.test(line)) continue;
+		if (/^\d+(?:\.\d+)?$/.test(line)) {
+			continue;
+		}
+		// Stop if we hit prompts after we started capturing
+		if (isPrompt(line)) {
+			if (started) break;
+			continue;
+		}
 		// Must contain letters
-		if (!/[A-Za-z]/.test(line)) continue;
-		return line.replace(/\s+/g, " ").trim();
+		if (!/[A-Za-z]/.test(line)) {
+			continue;
+		}
+		collected.push(line);
+		started = true;
 	}
-	// Fallback: join a small slice if no clean single line was found
-	const limited = Number.isFinite(maxLines) ? filtered.slice(0, Math.max(1, Math.min(3, maxLines))) : filtered.slice(0, 3);
-	return limited.join(" ").replace(/\s+/g, " ").trim() || null;
+	if (!collected.length) return null;
+	// Join lines preserving line boundaries
+	return collected.join("\n");
 }
 
 function pickMarkedOption(text, labelRegex, options) {
