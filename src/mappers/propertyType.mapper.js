@@ -24,7 +24,13 @@ function mapPropertyType(rawText) {
 
 	const isAboveCommercial = yesNoMarked(text, /Above commercial/i);
 
-	const residentialNatureImpact = extractFollowingText(text, /property e\.g\.\s*Noise,\s*Odour/i, /CURRENT\s+OCCUPANCY/i, 2);
+	// Capture the free-text area following the prompt about residential nature impact
+	const residentialNatureImpact = extractFollowingText(
+		text,
+		/If\s*Yes,\s*please\s*state.*?residential\s*nature.*?property.*?(Noise|Odou?r)/i,
+		/CURRENT\s+OCCUPANCY|CURRENT\s+OCCUPENCY|NEW\s+BUILD|CONSTRUCTION|LOCALITY\s+AND\s+DEMAND/i,
+		20
+	);
 
 	const tenure = pickMarkedOption(text, /Tenure:/i, ["Freehold", "Leasehold"]);
 
@@ -177,7 +183,7 @@ function floatAfterNullable(text, labelRegex) {
 	return null;
 }
 
-function extractFollowingText(text, startRegex, stopRegex, maxLines = 2) {
+function extractFollowingText(text, startRegex, stopRegex, maxLines = 20) {
 	const startIdx = text.search(startRegex);
 	if (startIdx === -1) return null;
 	const slice = text.slice(startIdx);
@@ -186,8 +192,9 @@ function extractFollowingText(text, startRegex, stopRegex, maxLines = 2) {
 	const lines = block.split("\n").map(s => s.trim()).filter(Boolean);
 	// Skip the first line (label)
 	const rest = lines.slice(1);
-	const candidate = rest.find(l => /simple text|odour|impact/i.test(l)) || rest.slice(0, maxLines).join(" ");
-	const payload = String(candidate || "").trim();
+	if (!rest.length) return null;
+	const limited = Number.isFinite(maxLines) ? rest.slice(0, maxLines) : rest;
+	const payload = limited.join(" ").replace(/\s+/g, " ").trim();
 	return payload || null;
 }
 

@@ -27,6 +27,37 @@ const upload = multer({ storage });
 
 app.post("/api/extract", upload.single("file"), extractData);
 
+// Optional preview endpoint for zones overlay on first page
+app.get("/api/zones/preview", async (req, res) => {
+	try {
+		const { file, template = "btl_v1" } = req.query || {};
+		if (!file) {
+			return res.status(400).json({ success: false, message: "Missing file query param" });
+		}
+		const { renderPdfToImages } = require("./pipelines/pdf-to-images/render");
+		const { drawZonesOverlay } = require("./pipelines/crop/overlay");
+		const fs = require("fs-extra");
+		const path = require("path");
+		const zones = require("./pipelines/crop/zones/" + template + ".json");
+
+		// If file is a PDF, render first page; if it's an image, use directly
+		let pageImage = String(file);
+		if (/\.pdf$/i.test(pageImage)) {
+			const rr = await renderPdfToImages(pageImage, { dpi: zones.dpi || 350 });
+			if (!rr.pages.length) {
+				return res.status(500).json({ success: false, message: "No pages rendered" });
+			}
+			pageImage = rr.pages[0];
+		}
+		const outPath = path.join("output", "debug", "zones-preview.png");
+		await drawZonesOverlay(pageImage, (zones.pages || {})["1"] || {}, outPath);
+		return res.json({ success: true, preview: outPath });
+	} catch (e) {
+		console.error("zones preview error", e);
+		return res.status(500).json({ success: false, message: String(e) });
+	}
+});
+
 app.get("/health", (req, res) => res.json({ status: "ok" }));
 
 app.listen(PORT, () => {
