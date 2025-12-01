@@ -7,10 +7,8 @@ function mapPropertyType(rawText) {
 	const isSemiDetachedHouse = hasXBetweenLabels(text, /Semi-Detached House/, /Terraced House/);
 	const isTerracedHouse = hasXBetweenLabels(text, /Terraced House/, null);
 	const isBungalow = hasXBetweenLabels(text, /Bungalow(?!.*Mortgage)/, /\bFlat\b/);
-	// Flat: attempt precise between-label detection first, then flexible proximity fallback
-	const _flatBetween = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
-	const _flatFlexible = hasMarkedXFlexible(text, /\bFlat\b/);
-	const isFlat = (_flatBetween === true) || (_flatFlexible === true);
+	// Flat: require X strictly between 'Flat' and 'Maisonette' on the same line to avoid false positives
+	const isFlat = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
 	const isMaisonette = hasXBetweenLabels(text, /\bMaisonette\b/, null);
 
 	const flatMaisonetteFloor = numberAfter(text, /If flat\s*\/\s*maisonette on what floor\?/i);
@@ -30,7 +28,7 @@ function mapPropertyType(rawText) {
 	// Capture the free-text area following the prompt about residential nature impact
 	const residentialNatureImpact = extractFollowingText(
 		text,
-		/If\s*Yes,\s*please\s*state.*?residential\s*nature.*?property.*?(Noise|Odou?r)/i,
+		/If\s*Yes,\s*please\s*state[\s\S]*?residential\s*nature[\s\S]*?property[\s\S]*?(Noise|Odou?r)/i,
 		/CURRENT\s+OCCUPANCY|CURRENT\s+OCCUPENCY|NEW\s+BUILD|CONSTRUCTION|LOCALITY\s+AND\s+DEMAND/i,
 		20
 	);
@@ -196,9 +194,24 @@ function extractFollowingText(text, startRegex, stopRegex, maxLines = 20) {
 	// Skip the first line (label)
 	const rest = lines.slice(1);
 	if (!rest.length) return null;
-	const limited = Number.isFinite(maxLines) ? rest.slice(0, maxLines) : rest;
-	const payload = limited.join(" ").replace(/\s+/g, " ").trim();
-	return payload || null;
+	// Drop the common second-line label fragment like "property e.g. Noise, Odour"
+	const filtered = rest.filter(l => !/^\s*property\s*e\.?\s*g\.?\s*[:\-]?\s*Noise,\s*Odou?r\s*$/i.test(l));
+	if (!filtered.length) return null;
+	// Heuristics: choose the first free-text answer line, skipping unrelated prompts/labels/numeric-only lines
+	for (const l of filtered) {
+		const line = String(l || "").trim();
+		// Skip numeric-only (e.g., "3")
+		if (/^\d+(?:\.\d+)?$/.test(line)) continue;
+		// Skip prompts, headers, or option lines
+		if (/\b(Yes|No)\b/i.test(line)) continue;
+		if (/(^([A-Z][A-Za-z/&\s-]+:)|Tenure\b|Has the property\b|Does the property\b|Number of\b|How many\b|HMO\b|Freehold\b|Leasehold\b|Freehold Block\b|CURRENT\s+OCCUPANCY)/i.test(line)) continue;
+		// Must contain letters
+		if (!/[A-Za-z]/.test(line)) continue;
+		return line.replace(/\s+/g, " ").trim();
+	}
+	// Fallback: join a small slice if no clean single line was found
+	const limited = Number.isFinite(maxLines) ? filtered.slice(0, Math.max(1, Math.min(3, maxLines))) : filtered.slice(0, 3);
+	return limited.join(" ").replace(/\s+/g, " ").trim() || null;
 }
 
 function pickMarkedOption(text, labelRegex, options) {
