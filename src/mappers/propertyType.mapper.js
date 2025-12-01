@@ -7,7 +7,10 @@ function mapPropertyType(rawText) {
 	const isSemiDetachedHouse = hasXBetweenLabels(text, /Semi-Detached House/, /Terraced House/);
 	const isTerracedHouse = hasXBetweenLabels(text, /Terraced House/, null);
 	const isBungalow = hasXBetweenLabels(text, /Bungalow(?!.*Mortgage)/, /\bFlat\b/);
-	const isFlat = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
+	// Flat: attempt precise between-label detection first, then flexible proximity fallback
+	const _flatBetween = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
+	const _flatFlexible = hasMarkedXFlexible(text, /\bFlat\b/);
+	const isFlat = (_flatBetween === true) || (_flatFlexible === true);
 	const isMaisonette = hasXBetweenLabels(text, /\bMaisonette\b/, null);
 
 	const flatMaisonetteFloor = numberAfter(text, /If flat\s*\/\s*maisonette on what floor\?/i);

@@ -32,6 +32,7 @@ async function zonalExtract(pdfPath, opts = {}) {
 
 	const debugPaths = {};
 	if (debug) {
+		if (!process.env.MAPPER_DEBUG) process.env.MAPPER_DEBUG = "1";
 		// Overlay zones on first page for quick visual check
 		const first = renderRes.pages[0];
 		if (first) {
