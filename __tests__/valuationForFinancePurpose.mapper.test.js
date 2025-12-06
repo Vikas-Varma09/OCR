@@ -21,7 +21,7 @@ describe("mapValuationForFinancePurpose", () => {
 		expect(r).toEqual({
 			valuationComparativeOnly: null,
 			isSuitableForFinance: true,
-			financeSuitabilityDetails: "",
+			financeSuitabilityDetails: null,
 			marketValuePresentCondition: 275000,
 			marketValueAfterRepairs: null,
 			purchasePriceOrBorrowerEstimate: 282000,
@@ -36,7 +36,7 @@ describe("mapValuationForFinancePurpose", () => {
 		expect(r).toEqual({
 			valuationComparativeOnly: null,
 			isSuitableForFinance: null,
-			financeSuitabilityDetails: "",
+			financeSuitabilityDetails: null,
 			marketValuePresentCondition: null,
 			marketValueAfterRepairs: null,
 			purchasePriceOrBorrowerEstimate: null,
