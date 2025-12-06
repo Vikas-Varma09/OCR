@@ -26,6 +26,22 @@ function windowAfter(text, labelRegex, span = 200) {
 	return after.slice(0, end);
 }
 
+function yesNoImmediateAfterLabel(text, labelRegex) {
+	const idx = text.search(labelRegex);
+	if (idx === -1) return null;
+	const after = text.slice(idx);
+	const lineEnd = after.indexOf("\n");
+	const line = lineEnd !== -1 ? after.slice(0, lineEnd) : after;
+	const m = labelRegex.exec(line);
+	if (!m) return null;
+	const tail = line.slice(m.index + m[0].length).trim();
+	// Take first non-empty token only
+	const firstToken = (tail.split(/\s+/)[0] || "").toLowerCase();
+	if (firstToken === "yes") return true;
+	if (firstToken === "no") return false;
+	return null;
+}
+
 function extractBetween(text, startRegex, endRegex) {
 	const startIdx = text.search(startRegex);
 	if (startIdx === -1) return null;
@@ -96,7 +112,11 @@ function mapAccommodation(rawText) {
 	// Gardens / Private / Communal (same-line markers)
 	{
 		const seg = windowAfter(text, /\bGardens\b/i, 240) || "";
-		if (gardens === null) gardens = pickYesNo(seg);
+		if (gardens === null) {
+			// Prefer immediate token after "Gardens" to avoid matching the "If Yes" label
+			const imm = yesNoImmediateAfterLabel(text, /\bGardens\b\s*/i);
+			gardens = imm !== null ? imm : pickYesNo(seg);
+		}
 		if (/\bPrivate\b\s+X\b/i.test(seg)) isPrivate = true;
 		if (/\bCommunal\b\s+X\b/i.test(seg)) isCommunal = true;
 		if (isCommunal === true && isPrivate === null && /\bPrivate\b/i.test(seg)) isPrivate = false;

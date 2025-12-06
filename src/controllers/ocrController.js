@@ -7,6 +7,8 @@ const { mapConstruction } = require("../mappers/construction.mapper");
 const { mapNewBuild } = require("../mappers/newBuild.mapper");
 const { mapPropertyType } = require("../mappers/propertyType.mapper");
 const { mapValuersDeclaration } = require("../mappers/valuersDeclaration.mapper");
+const { mapGeneralRemarks } = require("../mappers/generalRemarks.mapper");
+const { mapValuationForFinancePurpose } = require("../mappers/valuationForFinancePurpose.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const path = require("path");
 
@@ -58,6 +60,8 @@ async function extractData(req, res) {
 		const newBuild = { newBuild: mapNewBuild(pdfText) };
 		const propertyType = mapPropertyType(pdfText);
 		const valuersDeclaration = { valuersDeclaration: mapValuersDeclaration(pdfText) };
+		const generalRemarks = { generalRemarks: mapGeneralRemarks(pdfText) };
+		const valuationForFinancePurpose = { valuationForFinancePurpose: mapValuationForFinancePurpose(pdfText) };
 
 		return res.json({
 			success: true,
@@ -69,6 +73,8 @@ async function extractData(req, res) {
 				...currentOccupency,
 				...construction,
 				...newBuild,
+				...generalRemarks,
+				...valuationForFinancePurpose,
 				...valuersDeclaration,
 				propertyType
 			},

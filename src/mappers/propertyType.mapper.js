@@ -7,8 +7,12 @@ function mapPropertyType(rawText) {
 	const isSemiDetachedHouse = hasXBetweenLabels(text, /Semi-Detached House/, /Terraced House/);
 	const isTerracedHouse = hasXBetweenLabels(text, /Terraced House/, null);
 	const isBungalow = hasXBetweenLabels(text, /Bungalow(?!.*Mortgage)/, /\bFlat\b/);
-	// Flat: require X strictly between 'Flat' and 'Maisonette' on the same line to avoid false positives
-	const isFlat = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
+	// Flat: prefer strict same-line between 'Flat' and 'Maisonette'; fall back to flexible window if needed
+	let isFlat = hasXBetweenLabels(text, /\bFlat\b/, /\bMaisonette\b/);
+	if (isFlat !== true) {
+		const flatFlex = hasMarkedXFlexible(text, /\bFlat\b/);
+		if (flatFlex === true) isFlat = true;
+	}
 	const isMaisonette = hasXBetweenLabels(text, /\bMaisonette\b/, null);
 
 	const flatMaisonetteFloor = numberAfter(text, /If flat\s*\/\s*maisonette on what floor\?/i);
