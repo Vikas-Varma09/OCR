@@ -1,6 +1,7 @@
 const fs = require("fs");
 const { extractTextFromPDF } = require("../services/pdfTextExtractor");
-const { parseAccommodation } = require("../services/valueParser");
+const { parseHeader } = require("../services/valueParser");
+const { mapAccommodation } = require("../mappers/accommodation.mapper");
 const { mapPropertyType } = require("../mappers/propertyType.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const path = require("path");
@@ -46,13 +47,16 @@ async function extractData(req, res) {
 		}
 
 		// Extract structured values
-		const accommodation = parseAccommodation(pdfText);
+		const header = parseHeader(pdfText, req.body && req.body.applicationId ? String(req.body.applicationId) : null);
+		const accommodation = { accommodation: mapAccommodation(pdfText) };
 		const propertyType = mapPropertyType(pdfText);
 
 		return res.json({
 			success: true,
 			method: "pdf-text",
 			data: {
+				// Keep only header fields and propertyType (remove other sections)
+				...header,
 				...accommodation,
 				propertyType
 			},
