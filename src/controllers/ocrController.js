@@ -2,7 +2,11 @@ const fs = require("fs");
 const { extractTextFromPDF } = require("../services/pdfTextExtractor");
 const { parseHeader } = require("../services/valueParser");
 const { mapAccommodation } = require("../mappers/accommodation.mapper");
+const { mapCurrentOccupency } = require("../mappers/currentOccupency.mapper");
+const { mapConstruction } = require("../mappers/construction.mapper");
+const { mapNewBuild } = require("../mappers/newBuild.mapper");
 const { mapPropertyType } = require("../mappers/propertyType.mapper");
+const { mapValuersDeclaration } = require("../mappers/valuersDeclaration.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const path = require("path");
 
@@ -49,7 +53,11 @@ async function extractData(req, res) {
 		// Extract structured values
 		const header = parseHeader(pdfText, req.body && req.body.applicationId ? String(req.body.applicationId) : null);
 		const accommodation = { accommodation: mapAccommodation(pdfText) };
+		const currentOccupency = { currentOccupency: mapCurrentOccupency(pdfText) };
+		const construction = { construction: mapConstruction(pdfText) };
+		const newBuild = { newBuild: mapNewBuild(pdfText) };
 		const propertyType = mapPropertyType(pdfText);
+		const valuersDeclaration = { valuersDeclaration: mapValuersDeclaration(pdfText) };
 
 		return res.json({
 			success: true,
@@ -58,6 +66,10 @@ async function extractData(req, res) {
 				// Keep only header fields and propertyType (remove other sections)
 				...header,
 				...accommodation,
+				...currentOccupency,
+				...construction,
+				...newBuild,
+				...valuersDeclaration,
 				propertyType
 			},
 			rawText: pdfText

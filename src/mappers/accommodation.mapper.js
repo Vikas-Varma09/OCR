@@ -46,8 +46,6 @@ function cleanOutbuildingDetails(raw) {
 	s = s.replace(/^please\s*state\s*year\s*of\s*conversion\s*/i, "").trim();
 	// If it starts with a likely year (4 digits), remove just that one occurrence
 	s = s.replace(/^(?:19|20)\d{2}\s+/, "");
-	// Also strip a standalone short number if it's the very first token and followed by words like "year" (defensive)
-	s = s.replace(/^\d{1,4}\s+(?=[A-Za-z])/, "");
 	// Remove any lingering separators
 	s = s.replace(/^[:\-.,]\s*/, "");
 	return s.trim();

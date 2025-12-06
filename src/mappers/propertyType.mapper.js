@@ -17,8 +17,19 @@ function mapPropertyType(rawText) {
 	const isBuiltOrOwnedByLocalAuthority = yesNoMarked(text, /Property\s*built\s*or\s*owned\s*by\s*the\s*Local\s*Authority\?/i);
 	const ownerOccupationPercentage = floatAfterNullable(text, /approximate % of owner occupation/i);
 
-	// Converted: only true if X appears between 'Converted' and the following label fragment
-	const isFlatMaisonetteConverted = hasXBetweenLabels(text, /\bConverted\b/, /please state year of conversion|Purpose Built/i);
+	// Converted: prefer matching on the explicit options line, ignore "If Converted," prompts
+	let isFlatMaisonetteConverted = hasXBetweenLabels(text, /\bConverted\b/, /please state year of conversion|Purpose Built/i);
+	if (isFlatMaisonetteConverted !== true) {
+		// Line-based fallback: a line that starts with "Converted" and has X before the next label token
+		const lines = text.split("\n").map(s => s.trim());
+		const line = lines.find(l => /^Converted\b/i.test(l));
+		if (line) {
+			// Only consider content up to common next-label fragments
+			const cutAt = /(?:please\s*state\s*year\s*of\s*conversion|Purpose\s*Built)/i;
+			const seg = line.split(cutAt)[0] || line;
+			if (/\bX\b/.test(seg)) isFlatMaisonetteConverted = true;
+		}
+	}
 	const conversionYear = numberAfter(text, /year of conversion/i);
 	const isPurposeBuilt = hasMarkedX(text, /Purpose Built/i);
 	const numberOfUnitsInBlock = numberBetweenLabels(text, /No\s*of\s*units\s*in\s*block/i, /Gross\s+floor\s+area\s+of\s+dwelling/i);

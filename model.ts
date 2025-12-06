@@ -746,7 +746,7 @@ const valuerQualificationsSchema = new mongoose.Schema({
 
 const valuersDeclarationSchema = new mongoose.Schema({
    valuerSignature: {
-        type: Number,
+        type: String,
         default: null
     },
   valuerName: {
