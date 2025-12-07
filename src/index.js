@@ -11,6 +11,10 @@ const UPLOAD_DIR = process.env.UPLOAD_DIR || "uploads";
 
 const app = express();
 app.use(express.json({ limit: "5mb" }));
+app.use(express.urlencoded({ extended: true }));
+
+// Serve static UI
+app.use(express.static("public"));
 
 const storage = multer.diskStorage({
 	destination: async function (req, file, cb) {
