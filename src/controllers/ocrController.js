@@ -12,6 +12,7 @@ const { mapValuationForFinancePurpose } = require("../mappers/valuationForFinanc
 const { mapRentalInformation } = require("../mappers/rentalInformation.mapper");
 const { mapEssentialRepairs } = require("../mappers/essentialRepairs.mapper");
 const { mapEnergyEfficiency } = require("../mappers/energyEfficiency.mapper");
+const { mapReports } = require("../mappers/reports.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const path = require("path");
 
@@ -68,6 +69,7 @@ async function extractData(req, res) {
 		const rentalInformation = { rentalInformation: mapRentalInformation(pdfText) };
 		const essentialRepairs = { essentialRepairs: mapEssentialRepairs(pdfText) };
 		const energyEfficiency = { energyEfficiency: mapEnergyEfficiency(pdfText) };
+		const reports = { reports: mapReports(pdfText) };
 
 		return res.json({
 			success: true,
@@ -84,6 +86,7 @@ async function extractData(req, res) {
 				...rentalInformation,
 				...essentialRepairs,
 				...energyEfficiency,
+				...reports,
 				...valuersDeclaration,
 				propertyType
 			},
