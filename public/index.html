@@ -3,12 +3,20 @@
 <head>
 	<meta charset="utf-8">
 	<meta name="viewport" content="width=device-width, initial-scale=1">
-	<title>Gatehouse OCR - Upload</title>
+	<title>OCR Project - Upload</title>
 	<link rel="stylesheet" href="styles.css">
 </head>
 <body>
 	<div class="container">
-		<h1>Gatehouse OCR</h1>
+ 		<h1>OCR</h1>
+
+ 		<div class="tabs">
+ 			<button id="tab-upload" class="tab active" type="button">Upload</button>
+ 			<button id="tab-docs" class="tab" type="button">Documentation</button>
+ 		</div>
+
+ 		<!-- Upload Panel -->
+ 		<section id="panel-upload" class="tab-panel">
 		<form id="uploadForm">
 			<div class="field">
 				<label for="applicationId">Application ID (optional)</label>
@@ -27,6 +35,69 @@
 
 		<h2>Response</h2>
 		<pre id="response" class="response"></pre>
+ 		</section>
+ 
+ 		<!-- Docs Panel -->
+ 		<section id="panel-docs" class="tab-panel hidden">
+ 			<h2>Project Documentation</h2>
+ 			<p>This UI submits a PDF to the backend and renders the extracted JSON response. Below is an overview of the end-to-end pipeline.</p>
+ 			<h3>Architecture</h3>
+ 			<ul>
+ 				<li><b>Server</b>: Node.js + Express</li>
+ 				<li><b>Upload</b>: Multer (disk storage) via <code>POST /api/extract</code> with form field <code>file</code> and optional <code>applicationId</code></li>
+ 				<li><b>Text Extraction</b>: <code>pdf-parse</code> for digital PDFs; zone OCR pipeline fallback for low-text PDFs</li>
+ 				<li><b>Parsing</b>: Dedicated mappers in <code>src/mappers/*</code> to extract structured data from raw OCR text</li>
+ 				<li><b>Testing</b>: Jest unit tests + fixture-based tests under <code>__tests__</code></li>
+ 			</ul>
+ 			<h3>OCR Used and Why</h3>
+ 			<ul>
+ 				<li><b>OCR Engine</b>: <b>PaddleOCR</b> (Python) for scanned/low-text PDFs within our zonal OCR pipeline. Chosen for strong accuracy on document text and good multilingual support.</li>
+ 				<li><b>Primary (Digital PDFs)</b>: <code>pdf-parse</code> extracts embedded text directly from the PDF. <b>Why</b>: It’s fast, accurate, and avoids OCR errors when text is selectable.</li>
+ 				<li><b>Fallback (Scanned PDFs / Low Text)</b>: <b>Zonal OCR</b> pipeline using page rendering → image crops → OCR via <b>PaddleOCR</b>. <b>Why</b>: Scanned documents have no embedded text; focusing on known regions (zones) improves accuracy and reduces noise versus full-page OCR.</li>
+ 				<li><b>Zone Templates</b>: JSON templates define field regions; images are rendered from the PDF, cropped, OCR’d, and then normalized.</li>
+ 				<li><b>Post-processing</b>: Regex-based mappers convert raw text into typed fields, handling multi-line labels, Yes/No markers, numeric extraction, and block captures.</li>
+ 			</ul>
+ 			<h3>End-to-End Flow</h3>
+ 			<ol>
+ 				<li>Browser uploads PDF via <code>POST /api/extract</code> (multipart form-data).</li>
+ 				<li>Server stores the file and tries <code>pdf-parse</code> (digital text extraction).</li>
+ 				<li>If little/no text is found, server runs the <code>zonalExtract</code> pipeline (render → crop zones → OCR → normalize).</li>
+ 				<li>Raw text is passed through mappers in <code>src/mappers</code> to produce structured JSON.</li>
+ 				<li>Response includes the mapped data and the original <code>rawText</code> for debugging/validation.</li>
+ 			</ol>
+ 			<h3>Key Endpoints</h3>
+ 			<ul>
+ 				<li><code>POST /api/extract</code>: Multipart form upload (<code>file</code>); returns structured JSON including header and all mapped sections</li>
+ 				<li><code>GET /api/zones/preview?file=...&template=btl_v1</code>: Optional helper for visualizing zone templates</li>
+ 				<li><code>GET /health</code>: Health check</li>
+ 			</ul>
+ 			<h3>How to Run</h3>
+ 			<ol>
+ 				<li><code>npm install</code></li>
+ 				<li><code>npm start</code> (server at <code>http://localhost:3000</code>)</li>
+ 				<li>Open this page and upload a PDF to see JSON output</li>
+ 			</ol>
+ 			<h3>Environment Variables</h3>
+ 			<ul>
+ 				<li><code>PORT</code>: Server port (default <code>3000</code>)</li>
+ 				<li><code>UPLOAD_DIR</code>: Upload folder (default <code>uploads</code>)</li>
+ 				<li><code>FIXTURE</code> / <code>SKIP_EXPECTED</code>: Control fixture runner behavior in tests</li>
+ 			</ul>
+ 			<h3>Testing</h3>
+ 			<ol>
+ 				<li><code>npm test</code></li>
+ 				<li>Fixture tests will iterate samples in <code>__tests__/fixtures/raw</code> (and compare with <code>expected</code> if provided)</li>
+ 			</ol>
+ 			<h3>Project Structure (selected)</h3>
+ 			<ul>
+ 				<li><code>src/controllers/ocrController.js</code>: Orchestrates extraction and mapping</li>
+ 				<li><code>src/mappers/*.mapper.js</code>: Individual mappers (accommodation, propertyType, construction, newBuild, valuersDeclaration, generalRemarks, valuationForFinancePurpose, rentalInformation, essentialRepairs, energyEfficiency, reports, etc.)</li>
+ 				<li><code>public/</code>: Static UI</li>
+ 				<li><code>__tests__/</code>: Jest tests</li>
+ 			</ul>
+ 			<h3>Repository</h3>
+ 			<p>GitHub: <a href="https://github.com/Vikas-Varma09/OCR" target="_blank" rel="noopener noreferrer">Vikas-Varma09/OCR</a></p>
+ 		</section>
 	</div>
 	<script src="app.js"></script>
 </body>

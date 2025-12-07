@@ -14,6 +14,25 @@ body {
 	color: var(--fg);
 	font: 14px/1.5 system-ui, -apple-system, Segoe UI, Roboto, Helvetica, Arial, "Apple Color Emoji", "Segoe UI Emoji";
 }
+.tabs {
+	display: flex;
+	gap: 8px;
+	margin: 8px 0 16px;
+}
+.tab {
+	background: #0b1220;
+	color: var(--fg);
+	border: 1px solid #1f2937;
+	padding: 8px 12px;
+	border-radius: 8px;
+	cursor: pointer;
+}
+.tab.active {
+	border-color: var(--accent);
+	color: var(--accent);
+}
+.tab-panel { margin-top: 8px; }
+.hidden { display: none; }
 .container {
 	max-width: 900px;
 	margin: 32px auto;
