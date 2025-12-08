@@ -16,6 +16,7 @@ const { mapReports } = require("../mappers/reports.mapper");
 const { mapServices } = require("../mappers/services.mapper");
 const { mapConditionsOfProperty } = require("../mappers/conditionsOfProperty.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
+const { mapLocalityAndDemand } = require("../mappers/localityAndDemand.mapper");
 const path = require("path");
 
 async function extractData(req, res) {
@@ -74,6 +75,7 @@ async function extractData(req, res) {
 		const reports = { reports: mapReports(pdfText) };
 		const services = { services: mapServices(pdfText) };
 		const conditionsOfProperty = { conditionsOfProperty: mapConditionsOfProperty(pdfText) };
+		const localityAndDemand = { localityAndDemand: mapLocalityAndDemand(pdfText) };
 
 		return res.json({
 			success: true,
@@ -92,6 +94,7 @@ async function extractData(req, res) {
 				...energyEfficiency,
 				...reports,
 				...conditionsOfProperty,
+				...localityAndDemand,
 				...services,
 				...valuersDeclaration,
 				propertyType
