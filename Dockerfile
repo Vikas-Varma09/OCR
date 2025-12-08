@@ -1,8 +1,11 @@
 FROM node:20-bullseye
 
-# Install system deps and Python for PaddleOCR (CPU)
+# Install system deps, Python for PaddleOCR, and PDF tools (pdftocairo)
 RUN apt-get update -y \
- && apt-get install -y --no-install-recommends python3 python3-pip \
+ && apt-get install -y --no-install-recommends \
+    python3 \
+    python3-pip \
+    poppler-utils \
  && rm -rf /var/lib/apt/lists/*
 
 WORKDIR /app
@@ -24,5 +27,3 @@ ENV PORT=3000
 EXPOSE 3000
 
 CMD ["npm", "start"]
-
-
