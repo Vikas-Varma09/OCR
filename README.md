@@ -38,6 +38,35 @@ npm start
 Then open the UI at `http://localhost:3000`. Use the Upload tab to select a PDF and view the JSON response.
 
 
+### Docker (Containerized Run)
+Build and run the container (includes PaddleOCR CPU):
+
+```bash
+docker build -t ocr-app .
+docker run -p 3000:3000 --env PORT=3000 ocr-app
+```
+
+Open `http://localhost:3000`.
+
+Files ignored in the image: see `.dockerignore`. Uploaded files are ephemeral inside the container.
+
+
+### Deploying Publicly
+- Google Cloud Run (HTTPS by default)
+  ```bash
+  gcloud builds submit --tag gcr.io/PROJECT_ID/ocr-app
+  gcloud run deploy ocr-app --image gcr.io/PROJECT_ID/ocr-app --platform managed --region REGION --allow-unauthenticated --port 3000
+  ```
+- Render.com
+  - Create Web Service from repo (Docker). Set `PORT=3000`. Add a persistent disk only if you plan to retain uploads (not required by default).
+- Azure App Service (Container)
+  - Push image to ACR, create Web App for Containers with container port 3000.
+- AWS ECS/Fargate
+  - Push image to ECR; create a Fargate service behind an ALB on container port 3000.
+
+Health check endpoint: `GET /health` → `{ "status": "ok" }`.
+
+
 ### API Reference
 - POST `/api/extract`
   - Content-Type: multipart/form-data
@@ -72,6 +101,13 @@ Query options (for internal/testing purposes):
 - `method`: `auto` (default), `zone-ocr` (force zonal OCR)
 - `template`: zone template (default `btl_v1`)
 - `debug`: `true|false` (extra info in zonal pipeline)
+
+
+### Runtime Behavior
+- Upload lifecycle: uploaded PDFs are automatically deleted after processing (success or error). If you need to retain uploads for audit/debug, disable or change cleanup logic in `src/controllers/ocrController.js`.
+- Modes:
+  - `pdf-text`: primary path using embedded text extraction.
+  - `zone-ocr`: fallback path using PaddleOCR on cropped zones.
 
 
 ### Zonal OCR Overview
@@ -151,7 +187,7 @@ Located in `public/` and served by Express.
 
 ### Security & Privacy
 - Only PDF uploads are expected; sanitize and validate inputs in production.
-- Configure retention policy for `UPLOAD_DIR` per organization requirements.
+- By default, uploaded PDFs are deleted immediately after processing. If retention is required, configure policy and storage (local disk, object storage) accordingly.
 - Consider antivirus scanning and sandboxing in regulated environments.
 
 
