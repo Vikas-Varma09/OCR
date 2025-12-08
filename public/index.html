@@ -65,6 +65,22 @@
  				<li>Raw text is passed through mappers in <code>src/mappers</code> to produce structured JSON.</li>
  				<li>Response includes the mapped data and the original <code>rawText</code> for debugging/validation.</li>
  			</ol>
+ 			<h3>Installation</h3>
+ 			<p><b>Node.js dependencies</b> (from <code>package.json</code>):</p>
+ 			<ul>
+ 				<li>Runtime: <code>express</code>, <code>multer</code>, <code>pdf-parse</code>, <code>sharp</code>, <code>fs-extra</code>, <code>dotenv</code>, <code>mongoose</code></li>
+ 				<li>Dev/Test: <code>jest</code></li>
+ 			</ul>
+ 			<p>Install all Node dependencies:</p>
+ 			<pre class="response"><code>npm install</code></pre>
+ 			<p><b>PaddleOCR (Python) for zonal OCR fallback</b>:</p>
+ 			<ol>
+ 				<li>Install Python 3.9+ and ensure <code>python</code>/<code>pip</code> are on PATH.</li>
+ 				<li>Install Paddle (CPU) and PaddleOCR:
+ 					<pre class="response"><code>pip install paddlepaddle paddleocr</code></pre>
+ 				</li>
+ 				<li>(Optional) For GPU builds, install the appropriate <code>paddlepaddle-gpu</code> wheel per your CUDA/cuDNN setup, then <code>pip install paddleocr</code>.</li>
+ 			</ol>
  			<h3>Key Endpoints</h3>
  			<ul>
  				<li><code>POST /api/extract</code>: Multipart form upload (<code>file</code>); returns structured JSON including header and all mapped sections</li>
