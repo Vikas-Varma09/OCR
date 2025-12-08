@@ -20,11 +20,12 @@ const { mapLocalityAndDemand } = require("../mappers/localityAndDemand.mapper");
 const path = require("path");
 
 async function extractData(req, res) {
+	let filePath;
 	try {
 		if (!req.file || !req.file.path) {
 			return res.status(400).json({ success: false, message: "No PDF uploaded" });
 		}
-		const filePath = req.file.path;
+		filePath = req.file.path;
 
 		// Query options
 		const method = String(req.query.method || "auto");
@@ -104,6 +105,13 @@ async function extractData(req, res) {
 	} catch (error) {
 		console.error("Extraction error:", error);
 		res.status(500).json({ success: false, message: "Extraction failed", error: error.message || String(error) });
+	} finally {
+		// Best-effort cleanup of uploaded file
+		if (filePath) {
+			try {
+				await fs.promises.unlink(filePath);
+			} catch {}
+		}
 	}
 }
 
