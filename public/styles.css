@@ -80,5 +80,15 @@ button:hover { opacity: 0.95; }
 	max-height: 480px;
 	overflow: auto;
 }
+.response-actions {
+	display: flex;
+	justify-content: flex-end;
+	align-items: center;
+	margin: 8px 0;
+}
+.response-actions button[disabled] {
+	opacity: 0.6;
+	cursor: not-allowed;
+}
 
 

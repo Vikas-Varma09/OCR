@@ -1,6 +1,7 @@
 const form = document.getElementById("uploadForm");
 const statusEl = document.getElementById("status");
 const responseEl = document.getElementById("response");
+const copyBtn = document.getElementById("copy-btn");
 const tabUpload = document.getElementById("tab-upload");
 const tabDocs = document.getElementById("tab-docs");
 const panelUpload = document.getElementById("panel-upload");
@@ -13,6 +14,10 @@ function setStatus(msg, kind = "info") {
 
 function showResponse(obj) {
 	responseEl.textContent = JSON.stringify(obj, null, 2);
+	if (copyBtn) {
+		const hasContent = !!responseEl.textContent && responseEl.textContent.trim().length > 0;
+		copyBtn.disabled = !hasContent;
+	}
 }
 
 function switchTab(to) {
@@ -66,5 +71,34 @@ form.addEventListener("submit", async (e) => {
 		showResponse({ error: String(err) });
 	}
 });
+
+if (copyBtn) {
+	copyBtn.addEventListener("click", async () => {
+		const text = responseEl ? responseEl.textContent : "";
+		if (!text || !text.trim()) {
+			setStatus("Nothing to copy.", "error");
+			return;
+		}
+		try {
+			if (navigator.clipboard && navigator.clipboard.writeText) {
+				await navigator.clipboard.writeText(text);
+			} else {
+				// Fallback for older browsers
+				const ta = document.createElement("textarea");
+				ta.value = text;
+				ta.style.position = "fixed";
+				ta.style.top = "-9999px";
+				document.body.appendChild(ta);
+				ta.focus();
+				ta.select();
+				document.execCommand("copy");
+				document.body.removeChild(ta);
+			}
+			setStatus("Copied JSON to clipboard.", "success");
+		} catch (err) {
+			setStatus("Copy failed: " + String(err), "error");
+		}
+	});
+}
 
 
