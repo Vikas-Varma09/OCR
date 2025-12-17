@@ -147,8 +147,217 @@ async function extractResidentialNatureImpactAI(rawText, options = {}) {
 	return null;
 }
 
+async function extractNonStandardConstructionTypeAI(rawText, options = {}) {
+	const { apiKey: overrideKey, model: overrideModel } = options || {};
+	const apiKey = overrideKey || process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || process.env.OPENAI_API_TOKEN;
+	if (!apiKey) {
+		console.warn("AI extractor: OPENAI_API_KEY not set; skipping OpenAI call for nonStandardConstructionType");
+		return null;
+	}
+	const model = overrideModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+	console.log(
+		"AI extractor: calling OpenAI for nonStandardConstructionType (model=%s, rawTextLen=%d, keySource=%s)",
+		model,
+		String(rawText || "").length,
+		overrideKey ? "request" : "env"
+	);
+
+	const system = [
+		"You extract structured answers from noisy OCR text.",
+		'Task: Return ONLY the free-text answer for the field "If non-standard construction specify name of system or type:".',
+		"Rules:",
+		'- Prefer the text following that label; the answer can appear before lines like "If Yes please state % in commercial use", "Is the property being purchased", or "External finish:".',
+		"- Ignore prompts/labels. If the answer spans across adjacent lines/fragments, concatenate them with single spaces.",
+		"- Return a concise single line. Do not include labels or explanations."
+	].join(" ");
+
+	const user = [
+		"Here is the full raw report text:",
+		"---BEGIN RAW TEXT---",
+		String(rawText || ""),
+		"---END RAW TEXT---",
+		"Extract and return just the single-line answer."
+	].join("\n");
+
+	const maxAttempts = 2;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const resp = await postJson(
+				"https://api.openai.com/v1/chat/completions",
+				{
+					Authorization: `Bearer ${apiKey}`
+				},
+				{
+					model,
+					messages: [
+						{ role: "system", content: system },
+						{ role: "user", content: user }
+					],
+					temperature: 0.1,
+					max_tokens: 60
+				},
+				15000
+			);
+			console.log(
+				"AI extractor: OpenAI response received for nonStandardConstructionType (prompt_tokens=%s, completion_tokens=%s)",
+				resp && resp.usage && resp.usage.prompt_tokens,
+				resp && resp.usage && resp.usage.completion_tokens
+			);
+			const content = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;
+			const cleaned = cleanAnswer(content);
+			console.log("AI extractor: extracted nonStandardConstructionType =", cleaned || "(null)");
+			return cleaned;
+		} catch (e) {
+			const msg = e && e.message ? e.message : String(e);
+			const status = e && e.statusCode;
+			console.error(`AI extractor: OpenAI call failed for nonStandardConstructionType (attempt ${attempt}/${maxAttempts}):`, msg);
+			if (status === 429 || /insufficient_quota/i.test(msg)) {
+				console.error("AI extractor: insufficient quota or rate limit hit; not retrying (nonStandardConstructionType)");
+				return null;
+			}
+			if (status && String(status).startsWith("5") || /ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(msg)) {
+				if (attempt < maxAttempts) {
+					const waitMs = 800 * attempt;
+					console.log(`AI extractor: retrying after ${waitMs}ms... (nonStandardConstructionType)`);
+					await sleep(waitMs);
+					continue;
+				}
+			}
+			return null;
+		}
+	}
+	return null;
+}
+
+async function extractIncentivesDetailsAI(rawText, options = {}) {
+	const { apiKey: overrideKey, model: overrideModel } = options || {};
+	const apiKey = overrideKey || process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || process.env.OPENAI_API_TOKEN;
+	if (!apiKey) {
+		console.warn("AI extractor: OPENAI_API_KEY not set; skipping OpenAI call for incentivesDetails");
+		return null;
+	}
+	const model = overrideModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+	// Define a scoped block to avoid pulling extra sentences from other sections/pages
+	let scopeBlock = "";
+	try {
+		const anchorIdx = String(rawText || "").search(/Has\s+a\s+Disclosure\s+of\s+Incentives\s+form\s+been\s+seen\?/i);
+		const base = anchorIdx !== -1 ? String(rawText || "").slice(anchorIdx) : String(rawText || "");
+		const startRel = base.search(/If\s+Yes,\s*please\s*provide\s*details/i);
+		if (startRel !== -1) {
+			const sub = base.slice(startRel);
+			const stopRel = sub.search(/If\s+property\s+is\s+New\s+Build|GENERAL\s+REMARKS|VALUATION|VALUERS\s+DECLARATION/i);
+			scopeBlock = stopRel !== -1 ? sub.slice(0, stopRel) : sub;
+		}
+	} catch {}
+
+	console.log(
+		"AI extractor: calling OpenAI for incentivesDetails (model=%s, rawTextLen=%d, keySource=%s)",
+		model,
+		String(rawText || "").length,
+		overrideKey ? "request" : "env"
+	);
+
+	const system = [
+		"You extract structured answers from noisy OCR text.",
+		'Task: Return ONLY the free-text answer for the field starting at "If Yes, please provide details" (Disclosure of Incentives).',
+		'and the helper line "Including total value of incentives & if part exchange".',
+		"Rules:",
+		'- Capture all consecutive free-text lines after that prompt, concatenated with single spaces, until the next major label such as "If property is New Build, please provide the name of Developer:".',
+		"- Your answer MUST be a verbatim substring from the provided raw text (do not add words or complete sentences).",
+		"- Do NOT infer or append trailing text; copy exactly what appears in the OCR text.",
+		"- Ignore label lines and Yes/No markers. Do not include labels or explanations.",
+		"- Return a single concise line."
+	].join(" ");
+
+	const user = [
+		"Here is the full raw report text:",
+		"---BEGIN RAW TEXT---",
+		String(rawText || ""),
+		"---END RAW TEXT---",
+		"Extract and return just the single-line answer."
+	].join("\n");
+
+	const maxAttempts = 2;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+	 try {
+			const resp = await postJson(
+				"https://api.openai.com/v1/chat/completions",
+				{
+					Authorization: `Bearer ${apiKey}`
+				},
+				{
+					model,
+					messages: [
+						{ role: "system", content: system },
+						{ role: "user", content: user }
+					],
+					temperature: 0.1,
+					max_tokens: 80
+				},
+				15000
+			);
+			console.log(
+				"AI extractor: OpenAI response received for incentivesDetails (prompt_tokens=%s, completion_tokens=%s)",
+				resp && resp.usage && resp.usage.prompt_tokens,
+				resp && resp.usage && resp.usage.completion_tokens
+			);
+			const content = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;
+			let cleaned = cleanAnswer(content);
+
+			// Clamp to source: ensure the result is a substring of the scoped block or raw text
+			const norm = (s) => String(s || "").replace(/\r/g, "").replace(/\s+/g, " ").trim();
+			const aiNorm = norm(cleaned);
+			const scopeNorm = norm(scopeBlock);
+			const rawNorm = norm(rawText);
+			if (aiNorm && scopeNorm && !scopeNorm.includes(aiNorm)) {
+				// AI produced text not present verbatim in the scoped area; derive strictly from scope
+				const lines = String(scopeBlock || "").split("\n").map(s => s.trim());
+				const kept = [];
+				for (let i = 1; i < Math.min(lines.length, 8); i++) {
+					const ln = lines[i];
+					if (!ln) continue;
+					if (/^(Yes|No)\b/i.test(ln)) continue;
+					if (/^Including\b/i.test(ln)) continue;
+					if (/^\bX\b$/i.test(ln)) continue;
+					kept.push(ln);
+				}
+				const derived = kept.join(" ").replace(/\s+/g, " ").trim();
+				cleaned = derived || cleaned;
+			} else if (aiNorm && !rawNorm.includes(aiNorm)) {
+				// As a last resort, reject additions not present anywhere in the raw text
+				console.log("AI extractor: incentivesDetails AI output not found in raw text; keeping previous heuristic/derived value if any");
+			}
+
+			console.log("AI extractor: extracted incentivesDetails =", cleaned || "(null)");
+			return cleaned;
+		} catch (e) {
+			const msg = e && e.message ? e.message : String(e);
+			const status = e && e.statusCode;
+			console.error(`AI extractor: OpenAI call failed for incentivesDetails (attempt ${attempt}/${maxAttempts}):`, msg);
+			if (status === 429 || /insufficient_quota/i.test(msg)) {
+				console.error("AI extractor: insufficient quota or rate limit hit; not retrying (incentivesDetails)");
+				return null;
+			}
+			if (status && String(status).startsWith("5") || /ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(msg)) {
+				if (attempt < maxAttempts) {
+					const waitMs = 800 * attempt;
+					console.log(`AI extractor: retrying after ${waitMs}ms... (incentivesDetails)`);
+					await sleep(waitMs);
+					continue;
+				}
+			}
+			return null;
+		}
+	}
+	return null;
+}
+
 module.exports = {
-	extractResidentialNatureImpactAI
+	extractResidentialNatureImpactAI,
+	extractNonStandardConstructionTypeAI,
+	extractIncentivesDetailsAI
 };
 
 

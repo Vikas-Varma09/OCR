@@ -17,7 +17,7 @@ const { mapServices } = require("../mappers/services.mapper");
 const { mapConditionsOfProperty } = require("../mappers/conditionsOfProperty.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const { mapLocalityAndDemand } = require("../mappers/localityAndDemand.mapper");
-const { extractResidentialNatureImpactAI } = require("../services/aiExtractor");
+const { extractResidentialNatureImpactAI, extractNonStandardConstructionTypeAI, extractIncentivesDetailsAI } = require("../services/aiExtractor");
 const path = require("path");
 
 function normalizeRawText(input) {
@@ -101,6 +101,38 @@ async function extractData(req, res) {
 			}
 		} catch (e) {
 			console.error("Controller: AI extractor threw an error:", e && e.message ? e.message : String(e));
+		}
+
+		// AI-backed enhancement: nonStandardConstructionType
+		console.log("Controller: invoking AI extractor for nonStandardConstructionType");
+		try {
+			const openaiKey = (req.headers && (req.headers["x-openai-key"] || req.headers["x-openai_api_key"])) || (req.body && req.body.openaiKey) || null;
+			const openaiModel = (req.headers && (req.headers["x-openai-model"] || req.headers["x-openai_model"])) || (req.body && req.body.openaiModel) || null;
+			const aiC = await extractNonStandardConstructionTypeAI(pdfText, { apiKey: openaiKey, model: openaiModel });
+			if (aiC) {
+				console.log("Controller: AI extractor returned value; applying to construction.nonStandardConstructionType");
+				construction.construction.nonStandardConstructionType = aiC;
+			} else {
+				console.log("Controller: AI extractor returned null; keeping heuristic nonStandardConstructionType");
+			}
+		} catch (e) {
+			console.error("Controller: AI extractor (construction) threw an error:", e && e.message ? e.message : String(e));
+		}
+
+		// AI-backed enhancement: incentivesDetails
+		console.log("Controller: invoking AI extractor for incentivesDetails");
+		try {
+			const openaiKey = (req.headers && (req.headers["x-openai-key"] || req.headers["x-openai_api_key"])) || (req.body && req.body.openaiKey) || null;
+			const openaiModel = (req.headers && (req.headers["x-openai-model"] || req.headers["x-openai_model"])) || (req.body && req.body.openaiModel) || null;
+			const aiIncent = await extractIncentivesDetailsAI(pdfText, { apiKey: openaiKey, model: openaiModel });
+			if (aiIncent) {
+				console.log("Controller: AI extractor returned value; applying to newBuild.incentivesDetails");
+				newBuild.newBuild.incentivesDetails = aiIncent;
+			} else {
+				console.log("Controller: AI extractor returned null; keeping heuristic incentivesDetails");
+			}
+		} catch (e) {
+			console.error("Controller: AI extractor (incentives) threw an error:", e && e.message ? e.message : String(e));
 		}
 		const valuersDeclaration = { valuersDeclaration: mapValuersDeclaration(pdfText) };
 		const generalRemarks = { generalRemarks: mapGeneralRemarks(pdfText) };

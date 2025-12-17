@@ -35,7 +35,7 @@
     },
     "construction": {
       "isStandardConstruction": true,
-      "nonStandardConstructionType": "No",
+      "nonStandardConstructionType": "Concrete frame.",
       "mainWalls": "Unitised curtain walling facade",
       "mainRoof": "Concrete",
       "garageConstruction": "Ashok Garage",
