@@ -17,7 +17,7 @@ const { mapServices } = require("../mappers/services.mapper");
 const { mapConditionsOfProperty } = require("../mappers/conditionsOfProperty.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const { mapLocalityAndDemand } = require("../mappers/localityAndDemand.mapper");
-const { extractResidentialNatureImpactAI, extractNonStandardConstructionTypeAI, extractIncentivesDetailsAI } = require("../services/aiExtractor");
+const { extractResidentialNatureImpactAI, extractNonStandardConstructionTypeAI, extractIncentivesDetailsAI, extractCompulsoryPurchaseDetailsAI } = require("../services/aiExtractor");
 const path = require("path");
 
 function normalizeRawText(input) {
@@ -144,6 +144,21 @@ async function extractData(req, res) {
 		const services = { services: mapServices(pdfText) };
 		const conditionsOfProperty = { conditionsOfProperty: mapConditionsOfProperty(pdfText) };
 		const localityAndDemand = { localityAndDemand: mapLocalityAndDemand(pdfText) };
+		// AI-backed enhancement: compulsoryPurchaseDetails
+		console.log("Controller: invoking AI extractor for compulsoryPurchaseDetails");
+		try {
+			const openaiKey2 = (req.headers && (req.headers["x-openai-key"] || req.headers["x-openai_api_key"])) || (req.body && req.body.openaiKey) || null;
+			const openaiModel2 = (req.headers && (req.headers["x-openai-model"] || req.headers["x-openai_model"])) || (req.body && req.body.openaiModel) || null;
+			const aiComp = await extractCompulsoryPurchaseDetailsAI(pdfText, { apiKey: openaiKey2, model: openaiModel2 });
+			if (aiComp) {
+				console.log("Controller: AI extractor returned value; applying to localityAndDemand.compulsoryPurchaseDetails");
+				localityAndDemand.localityAndDemand.compulsoryPurchaseDetails = aiComp;
+			} else {
+				console.log("Controller: AI extractor returned null; keeping heuristic compulsoryPurchaseDetails");
+			}
+		} catch (e) {
+			console.error("Controller: AI extractor (compulsory) threw an error:", e && e.message ? e.message : String(e));
+		}
 
 		return res.json({
 			success: true,

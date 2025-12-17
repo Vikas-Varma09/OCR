@@ -354,10 +354,129 @@ async function extractIncentivesDetailsAI(rawText, options = {}) {
 	return null;
 }
 
+async function extractCompulsoryPurchaseDetailsAI(rawText, options = {}) {
+	const { apiKey: overrideKey, model: overrideModel } = options || {};
+	const apiKey = overrideKey || process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || process.env.OPENAI_API_TOKEN;
+	if (!apiKey) {
+		console.warn("AI extractor: OPENAI_API_KEY not set; skipping OpenAI call for compulsoryPurchaseDetails");
+		return null;
+	}
+	const model = overrideModel || process.env.OPENAI_MODEL || "gpt-4o-mini";
+
+	// Scope around the compulsory purchase question to avoid cross-section bleed
+	let scopeBlock = "";
+	try {
+		const baseIdx = String(rawText || "").search(/compulsory\s+purchase\s+or\s+clearance\?/i);
+		const base = baseIdx !== -1 ? String(rawText || "").slice(Math.max(0, baseIdx - 120)) : String(rawText || "");
+		const startRel = base.search(/If\s+Yes,\s*please\s*provide\s*details/i);
+		if (startRel !== -1) {
+			const sub = base.slice(startRel);
+			const stopRel = sub.search(/If\s+internal\s+or\s+external\s+communal\s+areas\s+exist\s+have\s+they|Are\s+there\s+any\s+vacant|Are\s+the\s+plot\s+boundaries|Is\s+there\s+any\s+evidence/i);
+			scopeBlock = stopRel !== -1 ? sub.slice(0, stopRel) : sub;
+		}
+	} catch {}
+
+	console.log(
+		"AI extractor: calling OpenAI for compulsoryPurchaseDetails (model=%s, rawTextLen=%d, keySource=%s)",
+		model,
+		String(rawText || "").length,
+		overrideKey ? "request" : "env"
+	);
+
+	const system = [
+		"You extract structured answers from noisy OCR text.",
+		'Task: Return ONLY the free-text answer following "If Yes, please provide details" for the question ',
+		'"Is the property likely to be affected by compulsory purchase or clearance?".',
+		"Rules:",
+		'- Capture the consecutive free-text answer lines after that prompt, concatenated with single spaces, stopping before the next question like "If internal or external communal areas exist have they been maintained..."',
+		"- Your answer MUST be a verbatim substring from the provided OCR text (no additions).",
+		"- Ignore label lines and Yes/No markers. Return a single line."
+	].join(" ");
+
+	const user = [
+		"Here is the relevant raw report text excerpt (may include surrounding lines):",
+		"---BEGIN RAW TEXT---",
+		scopeBlock || String(rawText || ""),
+		"---END RAW TEXT---",
+		"Extract and return just the single-line answer."
+	].join("\n");
+
+	const maxAttempts = 2;
+	for (let attempt = 1; attempt <= maxAttempts; attempt++) {
+		try {
+			const resp = await postJson(
+				"https://api.openai.com/v1/chat/completions",
+				{
+					Authorization: `Bearer ${apiKey}`
+				},
+				{
+					model,
+					messages: [
+						{ role: "system", content: system },
+						{ role: "user", content: user }
+					],
+					temperature: 0.1,
+					max_tokens: 60
+				},
+				15000
+			);
+			console.log(
+				"AI extractor: OpenAI response received for compulsoryPurchaseDetails (prompt_tokens=%s, completion_tokens=%s)",
+				resp && resp.usage && resp.usage.prompt_tokens,
+				resp && resp.usage && resp.usage.completion_tokens
+			);
+			const content = resp && resp.choices && resp.choices[0] && resp.choices[0].message && resp.choices[0].message.content;
+			let cleaned = cleanAnswer(content);
+			// Enforce verbatim from scope or raw
+			const norm = (s) => String(s || "").replace(/\r/g, "").replace(/\s+/g, " ").trim();
+			const aiNorm = norm(cleaned);
+			const scopeNorm = norm(scopeBlock);
+			const rawNorm = norm(rawText);
+			if (aiNorm && scopeNorm && !scopeNorm.includes(aiNorm)) {
+				// Derive strictly from scope
+				const lines = String(scopeBlock || "").split("\n").map(s => s.trim());
+				const kept = [];
+				for (let i = 1; i < Math.min(lines.length, 6); i++) {
+					const ln = lines[i];
+					if (!ln) continue;
+					if (/^(Yes|No)\b/i.test(ln)) continue;
+					if (/^If\s+internal\s+or\s+external/i.test(ln)) break;
+					kept.push(ln);
+				}
+				cleaned = kept.join(" ").replace(/\s+/g, " ").trim();
+			} else if (aiNorm && !rawNorm.includes(aiNorm)) {
+				console.log("AI extractor: compulsoryPurchaseDetails AI output not found in raw text; rejecting additions");
+				return null;
+			}
+			console.log("AI extractor: extracted compulsoryPurchaseDetails =", cleaned || "(null)");
+			return cleaned || null;
+		} catch (e) {
+			const msg = e && e.message ? e.message : String(e);
+			const status = e && e.statusCode;
+			console.error(`AI extractor: OpenAI call failed for compulsoryPurchaseDetails (attempt ${attempt}/${maxAttempts}):`, msg);
+			if (status === 429 || /insufficient_quota/i.test(msg)) {
+				console.error("AI extractor: insufficient quota or rate limit hit; not retrying (compulsoryPurchaseDetails)");
+				return null;
+			}
+			if (status && String(status).startsWith("5") || /ECONNRESET|ETIMEDOUT|ENOTFOUND/i.test(msg)) {
+				if (attempt < maxAttempts) {
+					const waitMs = 800 * attempt;
+					console.log(`AI extractor: retrying after ${waitMs}ms... (compulsoryPurchaseDetails)`);
+					await sleep(waitMs);
+					continue;
+				}
+			}
+			return null;
+		}
+	}
+	return null;
+}
+
 module.exports = {
 	extractResidentialNatureImpactAI,
 	extractNonStandardConstructionTypeAI,
-	extractIncentivesDetailsAI
+	extractIncentivesDetailsAI,
+	extractCompulsoryPurchaseDetailsAI
 };
 
 
