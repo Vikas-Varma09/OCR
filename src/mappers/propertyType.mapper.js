@@ -41,12 +41,24 @@ function mapPropertyType(rawText) {
 	const isAboveCommercial = yesNoMarked(text, /Above commercial/i);
 
 	// Capture the free-text area following the prompt about residential nature impact
-	const residentialNatureImpact = extractFollowingText(
+	let residentialNatureImpact = extractFollowingText(
 		text,
 		/If\s*Yes,\s*please\s*state[\s\S]*?residential\s*nature[\s\S]*?property[\s\S]*?(Noise|Odou?r)/i,
 		/CURRENT\s+OCCUPANCY|CURRENT\s+OCCUPENCY|NEW\s+BUILD|CONSTRUCTION|LOCALITY\s+AND\s+DEMAND/i,
 		20
 	);
+
+	// Fallback: in some layouts the answer appears after "How many adults..." and before "Does the property appear to be an HMO"
+	if (!residentialNatureImpact) {
+		const fb = extractBetween(
+			text,
+			/How\s+many\s+adults\s+appear\s+to\s+live\s+in\s+the\s+property\?\s*\d+/i,
+			/If\s+Yes,\s*please\s*provide\s*details/i,
+			200
+		);
+		const cleaned = sanitizeFreeText(fb);
+		if (cleaned) residentialNatureImpact = cleaned;
+	}
 
 	const tenure = pickMarkedOption(text, /Tenure:/i, ["Freehold", "Leasehold"]);
 
@@ -253,6 +265,42 @@ function extractFollowingText(text, startRegex, stopRegex, maxLines = 20) {
 	if (!collected.length) return null;
 	// Join lines preserving line boundaries
 	return collected.join("\n");
+}
+
+function extractBetween(text, startRegex, endRegex, maxSpan = 400) {
+	const startIdx = text.search(startRegex);
+	if (startIdx === -1) return null;
+	const after = text.slice(startIdx);
+	const endIdx = after.search(endRegex);
+	const slice = endIdx !== -1 ? after.slice(0, endIdx) : after;
+	return slice.length > maxSpan ? slice.slice(0, maxSpan) : slice;
+}
+
+function sanitizeFreeText(s) {
+	if (!s) return null;
+	let t = String(s).replace(/\r/g, "").replace(/\t/g, " ");
+	const lines = t.split("\n").map(l => l.trim()).filter(Boolean);
+	const kept = [];
+	const promptSplitRe = /(Does\s+the\s+property\s+appear\s+to\s+be\s+an\s+HMO[^\n]*$|Freehold\s*Block\?\s*Yes\s*No\s*X|Has\s+the\s+property|Tenure\b|CURRENT\s+OCCUPANCY)/i;
+	for (let i = 0; i < lines.length; i++) {
+		let line = lines[i];
+		// Skip leading question line like "How many adults ... 3"
+		if (/How\s+many\s+adults\s+appear\s+to\s+live/i.test(line)) continue;
+		// Keep only left segment before any prompt tokens on the same line
+		const m = line.match(promptSplitRe);
+		if (m) {
+			const idx = line.search(promptSplitRe);
+			line = idx > 0 ? line.slice(0, idx) : "";
+		}
+		line = line.replace(/\s+/g, " ").trim();
+		if (!line) continue;
+		// Skip pure numbers
+		if (/^\d+(?:\.\d+)?$/.test(line)) continue;
+		kept.push(line);
+	}
+	if (!kept.length) return null;
+	const joined = kept.join(" ").replace(/\s+/g, " ").trim();
+	return joined || null;
 }
 
 function pickMarkedOption(text, labelRegex, options) {

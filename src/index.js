@@ -16,6 +16,17 @@ app.use(express.urlencoded({ extended: true }));
 // Serve static UI
 app.use(express.static("public"));
 
+// AI config visibility (non-sensitive)
+{
+	const keyPresent = Boolean(process.env.OPENAI_API_KEY || process.env.OPENAI_APIKEY || process.env.OPENAI_API_TOKEN);
+	const model = process.env.OPENAI_MODEL || "gpt-4o-mini";
+	console.log(
+		"AI config: key=%s, model=%s",
+		keyPresent ? "present (from env)" : "NOT FOUND (set OPENAI_API_KEY in .env)",
+		model
+	);
+}
+
 const storage = multer.diskStorage({
 	destination: async function (req, file, cb) {
 		await fs.ensureDir(UPLOAD_DIR);

@@ -17,7 +17,22 @@ const { mapServices } = require("../mappers/services.mapper");
 const { mapConditionsOfProperty } = require("../mappers/conditionsOfProperty.mapper");
 const { zonalExtract } = require("../pipelines/combine/zonalExtract");
 const { mapLocalityAndDemand } = require("../mappers/localityAndDemand.mapper");
+const { extractResidentialNatureImpactAI } = require("../services/aiExtractor");
 const path = require("path");
+
+function normalizeRawText(input) {
+	// Preserve line structure but remove excess spaces and blank lines
+	const s = String(input || "").replace(/\r\n/g, "\n");
+	const lines = s.split("\n").map((line) => line.replace(/[ \t]+/g, " ").trim());
+	const compact = [];
+	for (const ln of lines) {
+		if (ln === "" && compact.length > 0 && compact[compact.length - 1] === "") {
+			continue; // collapse multiple blank lines
+		}
+		compact.push(ln);
+	}
+	return compact.join("\n").trim();
+}
 
 async function extractData(req, res) {
 	let filePath;
@@ -67,6 +82,26 @@ async function extractData(req, res) {
 		const construction = { construction: mapConstruction(pdfText) };
 		const newBuild = { newBuild: mapNewBuild(pdfText) };
 		const propertyType = mapPropertyType(pdfText);
+		// AI-backed enhancement: prefer AI extraction for residentialNatureImpact when available
+		console.log("Controller: invoking AI extractor for residentialNatureImpact");
+		try {
+			const openaiKey = (req.headers && (req.headers["x-openai-key"] || req.headers["x-openai_api_key"])) || (req.body && req.body.openaiKey) || null;
+			const openaiModel = (req.headers && (req.headers["x-openai-model"] || req.headers["x-openai_model"])) || (req.body && req.body.openaiModel) || null;
+			if (openaiKey) {
+				console.log("Controller: using OpenAI key from request headers/body");
+			} else {
+				console.log("Controller: using OpenAI key from environment");
+			}
+			const aiValue = await extractResidentialNatureImpactAI(pdfText, { apiKey: openaiKey, model: openaiModel });
+			if (aiValue) {
+				console.log("Controller: AI extractor returned value; applying to propertyType.residentialNatureImpact");
+				propertyType.residentialNatureImpact = aiValue;
+			} else {
+				console.log("Controller: AI extractor returned null; keeping heuristic value");
+			}
+		} catch (e) {
+			console.error("Controller: AI extractor threw an error:", e && e.message ? e.message : String(e));
+		}
 		const valuersDeclaration = { valuersDeclaration: mapValuersDeclaration(pdfText) };
 		const generalRemarks = { generalRemarks: mapGeneralRemarks(pdfText) };
 		const valuationForFinancePurpose = { valuationForFinancePurpose: mapValuationForFinancePurpose(pdfText) };
@@ -100,7 +135,7 @@ async function extractData(req, res) {
 				...valuersDeclaration,
 				propertyType
 			},
-			rawText: pdfText
+			rawText: normalizeRawText(pdfText)
 		});
 	} catch (error) {
 		console.error("Extraction error:", error);
